@@ -17,6 +17,7 @@ FEEDS = [
 COUNTRIES = {"USD"}                          # ES / NQ react to US data
 IMPACTS = {"High", "Medium", "Holiday"}      # medium + high impact, plus bank holidays
 ALERTS_MIN = {"High": [30, 5], "Medium": [5]}  # minutes before the release
+HOLIDAY_ALERT_HOUR = 7                         # bank holidays: alert at 7am that day
 EVENT_LEN = timedelta(minutes=15)
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "es-nq-econ.ics")
 ICON = {"High": "\U0001F534", "Medium": "\U0001F7E0", "Holiday": "\U0001F3E6"}
@@ -90,6 +91,9 @@ def build(events):
         for m in ALERTS_MIN.get(impact, []):
             lines += ["BEGIN:VALARM", "ACTION:DISPLAY", fold(f"DESCRIPTION:{esc(title)} in {m} min"),
                       f"TRIGGER:-PT{m}M", "END:VALARM"]
+        if impact == "Holiday":
+            lines += ["BEGIN:VALARM", "ACTION:DISPLAY", fold(f"DESCRIPTION:{esc(title)} today"),
+                      f"TRIGGER:PT{HOLIDAY_ALERT_HOUR}H", "END:VALARM"]
         lines.append("END:VEVENT")
     lines.append("END:VCALENDAR")
     return "\r\n".join(lines) + "\r\n", len(seen)
