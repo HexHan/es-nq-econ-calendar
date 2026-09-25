@@ -23,6 +23,40 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "es-nq-ec
 ICON = {"High": "\U0001F534", "Medium": "\U0001F7E0", "Holiday": "\U0001F3E6"}
 
 
+# US reports that move ES/NQ but that Forex Factory often rates Low (durable goods,
+# flash PMIs, housing...). Case-insensitive substring of the title; the event is raised
+# to at least this level. First match wins.
+WATCHLIST = [
+    ("Core CPI", "High"), ("CPI ", "High"), ("CPI y/y", "High"), ("Core PPI", "High"), ("PPI ", "High"),
+    ("Non-Farm Employment Change", "High"), ("Unemployment Rate", "High"), ("Average Hourly Earnings", "High"),
+    ("Federal Funds Rate", "High"), ("FOMC Statement", "High"), ("FOMC Press Conference", "High"),
+    ("FOMC Meeting Minutes", "High"), ("Fed Chair", "High"), ("Core PCE", "High"),
+    ("Advance GDP", "High"), ("Prelim GDP", "Medium"), ("Final GDP", "Medium"),
+    ("Retail Sales", "High"), ("ISM Manufacturing PMI", "High"), ("ISM Services PMI", "High"), ("JOLTS", "High"),
+    ("ADP Weekly", "Low"), ("ADP Non-Farm", "Medium"), ("Durable Goods", "Medium"), ("Unemployment Claims", "Medium"),
+    ("Flash Manufacturing PMI", "Medium"), ("Flash Services PMI", "Medium"),
+    ("UoM Consumer Sentiment", "Medium"), ("UoM Inflation Expectations", "Medium"),
+    ("CB Consumer Confidence", "Medium"), ("Empire State", "Medium"), ("Philly Fed", "Medium"),
+    ("New Home Sales", "Medium"), ("Existing Home Sales", "Medium"), ("Pending Home Sales", "Medium"),
+    ("Industrial Production", "Medium"), ("Employment Cost Index", "Medium"),
+    ("Prelim Nonfarm Productivity", "Medium"), ("Import Prices", "Medium"),
+    ("Treasury Currency Report", "Low"), ("Beige Book", "Medium"),
+    ("PCE Price Index", "High"), ("Personal Spending", "Medium"), ("Personal Income", "Medium"),
+    (" GDP", "Medium"), ("Trade Balance", "Medium"), (" ISM ", "Medium"),
+]
+RANK = {"High": 3, "Medium": 2, "Low": 1}
+
+
+def boost(title, country, ff):
+    if country != "USD" or ff == "Holiday":
+        return ff
+    t = f" {title} ".lower()
+    for key, level in WATCHLIST:
+        if key.lower() in t:
+            return level if RANK.get(level, 0) > RANK.get(ff, 0) else ff
+    return ff
+
+
 def fetch(url):
     req = urllib.request.Request(url, headers={"User-Agent": "es-nq-econ-calendar/1.0"})
     try:
@@ -64,14 +98,14 @@ def build(events):
     ]
     seen = set()
     for e in sorted(events, key=lambda x: x["date"]):
-        if e.get("country") not in COUNTRIES or e.get("impact") not in IMPACTS:
+        impact = boost(e.get("title", ""), e.get("country", ""), e.get("impact", ""))
+        if e.get("country") not in COUNTRIES or impact not in IMPACTS:
             continue
         start = datetime.fromisoformat(e["date"])
         uid = hashlib.sha1(f'{e["country"]}|{e["title"]}|{e["date"]}'.encode()).hexdigest()
         if uid in seen:
             continue
         seen.add(uid)
-        impact = e["impact"]
         title = f'{ICON[impact]} {e["title"]}'
         desc = f"Impact: {impact}"
         if e.get("forecast"):
